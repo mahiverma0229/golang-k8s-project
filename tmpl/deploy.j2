@@ -86,9 +86,9 @@ spec:
   - name: http
     port: 80
     protocol: HTTP
-    hostname: "app.kubesimplify.com"
+    hostname: "app.incident-response.com"
   - name: https
-    hostname: "app.kubesimplify.com"
+    hostname: "app.incident-response.com"
     port: 443
     protocol: HTTPS
     allowedRoutes:
@@ -97,15 +97,15 @@ spec:
     tls:
       mode: Terminate
       certificateRefs:
-      - name: app-kubesimplify-com-tls
+      - name: app-incident-response-com-tls
         kind: Secret
         group: ""
   - name: argo-http
     port: 80
     protocol: HTTP
-    hostname: "argo.kubesimplify.com"
+    hostname: "argo.incident-response.com"
   - name: argo-https
-    hostname: "argo.kubesimplify.com"
+    hostname: "argo.incident-response.com"
     port: 443
     protocol: HTTPS
     allowedRoutes:
@@ -114,7 +114,7 @@ spec:
     tls:
       mode: Terminate
       certificateRefs:
-      - name: argo-kubesimplify-com-tls
+      - name: argo-incident-response-com-tls
         kind: Secret
         group: ""
 
@@ -128,7 +128,7 @@ spec:
   - name: app-gateway
     namespace: default
   hostnames:
-  - "app.kubesimplify.com"
+  - "app.incident-response.com"
   rules:
   - matches:
     - path:
