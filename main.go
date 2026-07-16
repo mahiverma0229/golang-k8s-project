@@ -1,46 +1,68 @@
+// main.go
+//
+// Production-style skeleton for an AI-Powered Kubernetes Incident Response Platform.
+// This is an interview-oriented reference implementation.
+//
+// Features:
+// - Gin REST API
+// - PostgreSQL (CloudNativePG compatible)
+// - Prometheus metrics
+// - /health endpoint
+// - /metrics endpoint
+// - /analyze endpoint
+// - OpenAI API integration placeholder
+// - Prompt generation
+// - Incident persistence
+//
+// NOTE:
+// Replace callLLM() with the official OpenAI SDK or HTTP API.
+// Replace collectKubernetesContext() with client-go implementation.
+
 package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq" // this will help make postgres work with datbase/sql
+	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Define Prometheus metrics
 var (
-	addGoalCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "add_goal_requests_total",
-		Help: "Total number of add goal requests",
+	analyzeCounter = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "incident_analysis_requests_total",
+		Help: "Total incident analysis requests",
 	})
-	removeGoalCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "remove_goal_requests_total",
-		Help: "Total number of remove goal requests",
-	})
-	httpRequestsCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "http_requests_total",
-			Help: "Total number of HTTP requests",
-		},
-		[]string{"path"},
-	)
 )
 
-func init() {
-	// Register Prometheus metrics
-	prometheus.MustRegister(addGoalCounter)
-	prometheus.MustRegister(removeGoalCounter)
-	prometheus.MustRegister(httpRequestsCounter)
+type IncidentRequest struct {
+	Namespace string `json:"namespace"`
+	Pod       string `json:"pod"`
+	Status    string `json:"status"`
+	Logs      string `json:"logs"`
+	Events    string `json:"events"`
 }
 
-func createConnection() (*sql.DB, error) {
-	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=%s",
+type IncidentResponse struct {
+	RootCause  string `json:"root_cause"`
+	Severity   string `json:"severity"`
+	Remediation string `json:"remediation"`
+}
+
+func init() {
+	prometheus.MustRegister(analyzeCounter)
+}
+
+func createConnection() (*sql.DB,error){
+	conn:=fmt.Sprintf(
+		"user=%s password=%s host=%s port=%s dbname=%s sslmode=%s",
 		os.Getenv("DB_USERNAME"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_HOST"),
@@ -48,110 +70,183 @@ func createConnection() (*sql.DB, error) {
 		os.Getenv("DB_NAME"),
 		os.Getenv("SSL"),
 	)
-
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		return nil, err
-	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
+	db,err:=sql.Open("postgres",conn)
+	if err!=nil{return nil,err}
+	return db,db.Ping()
 }
 
-func main() {
-	router := gin.Default()
+// In production use client-go.
+// Collect pod logs, events, deployment, restart count,
+// and optionally Prometheus metrics.
+func collectKubernetesContext(req IncidentRequest) string{
+	return fmt.Sprintf(`
+Namespace: %s
+Pod: %s
+Status: %s
+Logs:
+%s
 
-	router.LoadHTMLGlob(os.Getenv("KO_DATA_PATH") + "/*.html")
-	db, err := createConnection()
-	if err != nil {
-		log.Println("Error connecting to PostgreSQL", err)
-		return
+Events:
+%s
+`,req.Namespace,req.Pod,req.Status,req.Logs,req.Events)
+}
+
+// Prompt Engineering
+func buildPrompt(ctx string) string{
+	return `
+You are an experienced Kubernetes Site Reliability Engineer.
+
+Analyze the following Kubernetes incident.
+
+`+ctx+`
+
+Provide:
+1. Root Cause
+2. Severity
+3. Recommended Remediation
+4. Useful kubectl commands
+`
+}
+
+// Replace this with OpenAI SDK/API call.
+func callLLM(prompt string)(IncidentResponse,error){
+
+	// Example:
+	// POST https://api.openai.com/v1/responses
+	// Authorization: Bearer $OPENAI_API_KEY
+
+	_ = prompt
+
+	return IncidentResponse{
+		RootCause:"CrashLoopBackOff caused by database connectivity failure.",
+		Severity:"High",
+		Remediation:"Verify Secret, PostgreSQL endpoint, restart deployment after fixing connectivity.",
+	},nil
+}
+
+func saveIncident(db *sql.DB, req IncidentRequest, res IncidentResponse){
+
+	_,err:=db.Exec(`
+	insert into incident_history
+	(namespace,pod,status,root_cause,severity,remediation)
+	values($1,$2,$3,$4,$5,$6)
+	`,
+	req.Namespace,
+	req.Pod,
+	req.Status,
+	res.RootCause,
+	res.Severity,
+	res.Remediation)
+
+	if err!=nil{
+		log.Println(err)
+	}
+}
+
+func main(){
+
+	db,err:=createConnection()
+	if err!=nil{
+		log.Fatal(err)
 	}
 	defer db.Close()
 
-	router.GET("/", func(c *gin.Context) {
+	router:=gin.Default()
 
-		rows, err := db.Query("SELECT * FROM goals")
-		if err != nil {
-			log.Println("Error querying database", err)
-			c.String(http.StatusInternalServerError, "Error querying the database")
+	router.GET("/health",func(c *gin.Context){
+		c.String(200,"OK")
+	})
+
+	router.GET("/metrics",gin.WrapH(promhttp.Handler()))
+
+	// Main AI endpoint
+	router.POST("/analyze",func(c *gin.Context){
+
+		analyzeCounter.Inc()
+
+		var req IncidentRequest
+
+		if err:=c.ShouldBindJSON(&req);err!=nil{
+			c.JSON(400,gin.H{"error":err.Error()})
+			return
+		}
+
+		// Normally collected from Kubernetes client-go
+		context:=collectKubernetesContext(req)
+
+		// Build LLM prompt
+		prompt:=buildPrompt(context)
+
+		// Call OpenAI
+		llmResponse,err:=callLLM(prompt)
+		if err!=nil{
+			c.JSON(500,gin.H{"error":err.Error()})
+			return
+		}
+
+		saveIncident(db,req,llmResponse)
+
+		c.JSON(200,llmResponse)
+	})
+
+	// Optional endpoint to inspect generated prompt
+	router.POST("/debug/prompt",func(c *gin.Context){
+
+		var req IncidentRequest
+		c.BindJSON(&req)
+
+		p:=buildPrompt(
+			collectKubernetesContext(req),
+		)
+
+		c.String(200,strings.TrimSpace(p))
+	})
+
+	router.GET("/history",func(c *gin.Context){
+
+		rows,err:=db.Query(`
+		select namespace,pod,status,root_cause,severity
+		from incident_history
+		order by id desc
+		`)
+		if err!=nil{
+			c.JSON(500,nil)
 			return
 		}
 		defer rows.Close()
 
-		var goals []struct {
-			ID   int
-			Name string
+		var out []map[string]string
+
+		for rows.Next(){
+			var ns,pod,status,rc,severity string
+			rows.Scan(&ns,&pod,&status,&rc,&severity)
+
+			out=append(out,map[string]string{
+				"namespace":ns,
+				"pod":pod,
+				"status":status,
+				"rootCause":rc,
+				"severity":severity,
+			})
 		}
 
-		for rows.Next() {
-			var goal struct {
-				ID   int
-				Name string
-			}
-			if err := rows.Scan(&goal.ID, &goal.Name); err != nil {
-				log.Println("Error scanning row", err)
-				continue
-			}
-			goals = append(goals, goal)
-		}
-
-		httpRequestsCounter.WithLabelValues("/").Inc()
-
-		c.HTML(http.StatusOK, "index.html", gin.H{
-			"goals": goals,
-		})
+		c.JSON(200,out)
 	})
 
-	router.POST("/add_goal", func(c *gin.Context) {
-		goalName := c.PostForm("goal_name")
-		if goalName != "" {
-
-			_, err = db.Exec("INSERT INTO goals (goal_name) VALUES ($1)", goalName)
-			if err != nil {
-				log.Println("Error inserting goal", err)
-				c.String(http.StatusInternalServerError, "Error inserting goal into the database")
-				return
-			}
-
-			// Increment the add goal counter
-			addGoalCounter.Inc()
-			httpRequestsCounter.WithLabelValues("/add_goal").Inc()
-
-		}
-		c.Redirect(http.StatusFound, "/")
-	})
-
-	router.POST("/remove_goal", func(c *gin.Context) {
-		goalID := c.PostForm("goal_id")
-		if goalID != "" {
-
-			_, err = db.Exec("DELETE FROM goals WHERE id = $1", goalID)
-			if err != nil {
-				log.Println("Error deleting goal", err)
-				c.String(http.StatusInternalServerError, "Error deleting goal from the database")
-				return
-			}
-
-			// Increment the remove goal counter
-			removeGoalCounter.Inc()
-			httpRequestsCounter.WithLabelValues("/remove_goal").Inc()
-
-		}
-		c.Redirect(http.StatusFound, "/")
-	})
-
-	router.GET("/health", func(c *gin.Context) {
-		httpRequestsCounter.WithLabelValues("/health").Inc()
-		c.String(http.StatusOK, "OK")
-	})
-
-	// Expose metrics endpoint
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-
-	router.Run(":8080")
+	log.Println("Server started on :8080")
+	http.ListenAndServe(":8080",router)
 }
+
+// Example request:
+//
+// {
+//   "namespace":"production",
+//   "pod":"payment-service",
+//   "status":"CrashLoopBackOff",
+//   "logs":"connection refused",
+//   "events":"Back-off restarting failed container"
+// }
+//
+// Flow:
+// Frontend -> Go Backend -> Kubernetes Context -> Prompt ->
+// OpenAI API -> RCA -> PostgreSQL -> JSON Response
