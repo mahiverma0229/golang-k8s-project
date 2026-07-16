@@ -1,4 +1,4 @@
-module github.com/kubesimplify/devops-project
+module github.com/incident-response/devops-project
 
 go 1.22.5
 

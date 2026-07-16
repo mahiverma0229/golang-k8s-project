@@ -26,7 +26,7 @@ export const options = {
 };
 
 // ── Target base URL ───────────────────────────────────────────────────────────
-const BASE_URL = 'https://app.kubesimplify.com';
+const BASE_URL = 'https://app.incident-response.com';
 
 // ── Sample incident payload ───────────────────────────────────────────────────
 // Simulates an engineer submitting a crashing pod for analysis.
