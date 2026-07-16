@@ -1,115 +1,317 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Kubesimplify DevOps Project Completed!</title>
+    <meta charset="UTF-8">
+    <title>AI Incident Response Platform</title>
     <style>
+        /* ── Global reset & fonts ── */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #f4f4f4;
+            background: #f4f6f9;
             color: #333;
         }
-        .container {
-            width: 80%;
-            margin: 50px auto;
+
+        /* ── Page header ── */
+        header {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 18px 30px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        header img { height: 40px; }
+        header h1 { font-size: 20px; font-weight: 700; }
+        header p  { font-size: 13px; color: #aab; margin-top: 2px; }
+
+        /* ── Main layout ── */
+        .container { max-width: 900px; margin: 30px auto; padding: 0 20px; }
+
+        /* ── Card ── */
+        .card {
             background: #fff;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
+            padding: 24px;
+            margin-bottom: 24px;
         }
-        h2 {
-            text-align: center;
-            color: #4CAF50;
-            margin-bottom: 20px;
-            font-family: 'Trebuchet MS', sans-serif;
-        }
-        form {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        .card h2 { font-size: 16px; margin-bottom: 16px; color: #1a1a2e; }
+
+        /* ── Form inputs ── */
+        .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
         input[type="text"] {
-            padding: 10px;
-            font-size: 16px;
+            flex: 1;
+            padding: 10px 12px;
+            font-size: 14px;
             border: 1px solid #ccc;
-            border-radius: 5px;
-            width: 70%;
+            border-radius: 6px;
+            min-width: 180px;
         }
         button {
-            padding: 10px 15px;
-            font-size: 16px;
+            padding: 10px 22px;
+            font-size: 14px;
             border: none;
-            border-radius: 5px;
-            background-color: #4CAF50;
-            color: white;
+            border-radius: 6px;
+            background: #4a90d9;
+            color: #fff;
             cursor: pointer;
+            font-weight: 600;
         }
-        button:hover {
-            background-color: #45a049;
+        button:hover { background: #357abd; }
+        button:disabled { background: #9bb8d8; cursor: not-allowed; }
+
+        /* ── Status badge ── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
         }
-        .goal-list {
-            list-style-type: none;
-            padding: 0;
+        .badge-crash  { background: #fde8e8; color: #c0392b; }
+        .badge-ok     { background: #e8f8ef; color: #27ae60; }
+        .badge-warn   { background: #fff3e0; color: #e67e22; }
+        .badge-unknown{ background: #f0f0f0; color: #666; }
+
+        /* ── Analysis result box ── */
+        #result-box {
+            display: none;
+            background: #f7f9fc;
+            border-left: 4px solid #4a90d9;
+            border-radius: 6px;
+            padding: 16px;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.7;
         }
-        .goal-item {
-            margin: 10px 0;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
+        #result-meta {
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #555;
+        }
+
+        /* ── Loader spinner ── */
+        .loader {
+            display: none;
+            border: 3px solid #e0e0e0;
+            border-top: 3px solid #4a90d9;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Incident history table ── */
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #f0f4f8; text-align: left; padding: 9px 12px; color: #555; }
+        td { padding: 9px 12px; border-bottom: 1px solid #eee; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        .analysis-snippet { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ── Architecture flow ── */
+        .flow {
             display: flex;
-            justify-content: space-between;
             align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: #444;
         }
-        .delete-button {
-            background-color: #f44336;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
+        .flow-step {
+            background: #eef4fd;
+            border: 1px solid #c5d9f2;
+            border-radius: 6px;
+            padding: 6px 12px;
         }
-        .delete-button:hover {
-            background-color: #e53935;
-        }
-        .logo {
-            display: block;
-            margin: 0 auto 20px;
-        }
+        .arrow { color: #4a90d9; font-weight: bold; }
+
         footer {
             text-align: center;
-            margin-top: 30px;
-            font-size: 14px;
-            color: #777;
+            margin: 30px 0 16px;
+            font-size: 12px;
+            color: #999;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <img src="/logo.png" alt="Kubernetes Logo" class="logo">
-        <h2>Mahi's Goal Tracker  </h2>
-        <form action="/add_goal" method="post">
-            <input type="text" name="goal_name" placeholder="Enter your goal">
-            <button type="submit">Add Goal</button>
-        </form>
-        {{ if .goals }}
-        <ul class="goal-list">
-            {{ range .goals }}
-                <li class="goal-item">
-                    {{ .Name }}
-                    <form action="/remove_goal" method="post" style="display: inline;">
-                        <input type="hidden" name="goal_id" value="{{ .ID }}">
-                        <button type="submit" class="delete-button">Delete</button>
-                    </form>
-                </li>
-            {{ end }}
-        </ul>
-        {{ end }}
+
+<!-- ── Page header ── -->
+<header>
+    <img src="/logo.png" alt="Kubernetes Logo">
+    <div>
+        <h1>AI-Powered Kubernetes Incident Response</h1>
+        <p>Automated root cause analysis using OpenAI + Kubernetes API + CloudNativePG</p>
     </div>
-    <footer>
-        © 2026 Mahi Verma
-    </footer>
-    <script>
-        document.querySelectorAll('form').forEach(form => {
-            form.onsubmit = () => setTimeout(() => location.reload(), 500); // Reload page after a short delay
+</header>
+
+<div class="container">
+
+    <!-- ── Architecture flow ── -->
+    <div class="card">
+        <h2>How It Works</h2>
+        <div class="flow">
+            <span class="flow-step">Pod Incident</span>
+            <span class="arrow">→</span>
+            <span class="flow-step">Collect K8s Data</span>
+            <span class="arrow">→</span>
+            <span class="flow-step">Build Prompt</span>
+            <span class="arrow">→</span>
+            <span class="flow-step">OpenAI API</span>
+            <span class="arrow">→</span>
+            <span class="flow-step">Root Cause Analysis</span>
+            <span class="arrow">→</span>
+            <span class="flow-step">Suggested Fix</span>
+        </div>
+    </div>
+
+    <!-- ── Analyze form ── -->
+    <div class="card">
+        <h2>Analyze an Incident</h2>
+        <div class="form-row">
+            <input type="text" id="pod-name"   placeholder="Pod name  (e.g. payment-service-abc12)">
+            <input type="text" id="namespace"  placeholder="Namespace  (e.g. production)" value="default">
+            <button id="analyze-btn" onclick="analyze()">Analyze</button>
+        </div>
+
+        <!-- Loading spinner shown while waiting for OpenAI response -->
+        <div class="loader" id="loader"></div>
+
+        <!-- Result area — hidden until a response arrives -->
+        <div id="result-box">
+            <div id="result-meta"></div>
+            <div id="result-text"></div>
+        </div>
+    </div>
+
+    <!-- ── Incident history ── -->
+    <div class="card">
+        <h2>Recent Incidents  <button style="float:right;font-size:12px;padding:5px 12px;" onclick="loadHistory()">Refresh</button></h2>
+        <table id="history-table">
+            <thead>
+                <tr>
+                    <th>Pod</th>
+                    <th>Namespace</th>
+                    <th>Status</th>
+                    <th>Analysis (snippet)</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                <tr><td colspan="5" style="color:#999;text-align:center;">Loading history…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<footer>© 2026 Mahi Verma — AI-Powered Incident Response Platform</footer>
+
+<script>
+    // ── analyze() ───────────────────────────────────────────────────────────
+    // Called when the user clicks "Analyze".
+    // Sends a POST /analyze request with the pod name and namespace,
+    // then displays the LLM-generated root cause analysis.
+    // ────────────────────────────────────────────────────────────────────────
+    function analyze() {
+        const podName   = document.getElementById('pod-name').value.trim();
+        const namespace = document.getElementById('namespace').value.trim() || 'default';
+
+        if (!podName) { alert('Please enter a pod name.'); return; }
+
+        // Show spinner, hide previous result
+        document.getElementById('loader').style.display = 'block';
+        document.getElementById('result-box').style.display = 'none';
+        document.getElementById('analyze-btn').disabled = true;
+
+        // POST to the Go backend /analyze endpoint
+        fetch('/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pod_name: podName, namespace: namespace })
+        })
+        .then(r => r.json())
+        .then(data => {
+            // Hide spinner
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+
+            if (data.error) {
+                showResult('Error: ' + data.error, podName, namespace, 'unknown');
+                return;
+            }
+
+            // Display the LLM analysis
+            showResult(data.analysis, data.pod_name, data.namespace, data.status);
+
+            // Refresh history table so the new incident appears
+            loadHistory();
+        })
+        .catch(err => {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+            showResult('Request failed: ' + err.message, podName, namespace, 'unknown');
         });
-    </script>
+    }
+
+    // ── showResult() ─────────────────────────────────────────────────────────
+    // Renders the analysis result card with a status badge.
+    // ─────────────────────────────────────────────────────────────────────────
+    function showResult(text, pod, ns, status) {
+        const badgeClass = badgeFor(status);
+        document.getElementById('result-meta').innerHTML =
+            `<strong>Pod:</strong> ${pod} &nbsp;|&nbsp;
+             <strong>Namespace:</strong> ${ns} &nbsp;|&nbsp;
+             <span class="badge ${badgeClass}">${status}</span>`;
+        document.getElementById('result-text').textContent = text;
+        document.getElementById('result-box').style.display = 'block';
+    }
+
+    // ── badgeFor() ───────────────────────────────────────────────────────────
+    // Returns a CSS class based on the pod status string.
+    // ─────────────────────────────────────────────────────────────────────────
+    function badgeFor(status) {
+        if (!status) return 'badge-unknown';
+        const s = status.toLowerCase();
+        if (s.includes('crash') || s.includes('error') || s.includes('backoff')) return 'badge-crash';
+        if (s === 'running') return 'badge-ok';
+        if (s.includes('pending') || s.includes('waiting')) return 'badge-warn';
+        return 'badge-unknown';
+    }
+
+    // ── loadHistory() ────────────────────────────────────────────────────────
+    // Fetches the last 20 incidents from GET /incidents and renders the table.
+    // ─────────────────────────────────────────────────────────────────────────
+    function loadHistory() {
+        fetch('/incidents')
+            .then(r => r.json())
+            .then(incidents => {
+                const tbody = document.getElementById('history-body');
+                if (!incidents || incidents.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="color:#999;text-align:center;">No incidents yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = incidents.map(i => `
+                    <tr>
+                        <td>${i.pod_name}</td>
+                        <td>${i.namespace}</td>
+                        <td><span class="badge ${badgeFor(i.status)}">${i.status}</span></td>
+                        <td class="analysis-snippet" title="${i.analysis}">${i.analysis.substring(0, 80)}…</td>
+                        <td>${new Date(i.created_at).toLocaleString()}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(() => {
+                document.getElementById('history-body').innerHTML =
+                    '<tr><td colspan="5" style="color:#999;text-align:center;">Could not load history.</td></tr>';
+            });
+    }
+
+    // Load incident history when the page first opens
+    loadHistory();
+</script>
+
 </body>
 </html>
-

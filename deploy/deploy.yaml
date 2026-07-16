@@ -1,24 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app
+  name: incident-response-app          # AI Incident Response Platform
   labels:
-    app: my-app
+    app: incident-response-app
 spec:
-  replicas: 3 
+  replicas: 3
   selector:
     matchLabels:
-      app: my-app
+      app: incident-response-app
   template:
     metadata:
       labels:
-        app: my-app
+        app: incident-response-app
     spec:
       containers:
-      - name: my-app
+      - name: incident-response-app
         image: docker.io/saiyam911/devops-project:sha-4b4583a
         imagePullPolicy: Always
         env:
+        # ── Database credentials (from Kubernetes Secret) ──────────────────
         - name: DB_USERNAME
           valueFrom:
             secretKeyRef:
@@ -34,7 +35,18 @@ spec:
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME
-          value: goals_database
+          value: incidents_database        # stores incident history
+        - name: SSL
+          value: disable
+        # ── OpenAI API key (from Kubernetes Secret) ────────────────────────
+        # Create the secret with:
+        #   kubectl create secret generic openai-credentials \
+        #     --from-literal=api-key=<YOUR_KEY>
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openai-credentials
+              key: api-key
         ports:
         - containerPort: 8080
         readinessProbe:
@@ -60,12 +72,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: my-app-service
+  name: incident-response-service      # ClusterIP service for the app
   labels:
-    app: my-app
+    app: incident-response-app
 spec:
   selector:
-    app: my-app
+    app: incident-response-app
   ports:
     - protocol: TCP
       name: http
@@ -135,5 +147,5 @@ spec:
         type: PathPrefix
         value: /
     backendRefs:
-    - name: my-app-service
+    - name: incident-response-service  # route all traffic to the Go service
       port: 80
